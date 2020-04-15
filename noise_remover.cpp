@@ -96,8 +96,8 @@ int main(int argc, char *argv[]) {
 		sum2 = 0;
 		// REDUCTION AND STATISTICS
 		// --- 3 floating point arithmetic operations per element -> 3*height*width in total
-		for (int i = 0; i <= height; i++) {
-			for (int j = 0; j <= width; j++) {
+		for (int i = 0; i < height; i++) {
+			for (int j = 0; j < width; j++) {
 				tmp = image[i * width + j];	// current pixel value
 				sum += tmp; // --- 1 floating point arithmetic operations
 				sum2 += tmp * tmp; // --- 2 floating point arithmetic operations
@@ -187,4 +187,3 @@ int main(int argc, char *argv[]) {
 	printf("GFLOPS: %f\n", gflops);
 	return 0;
 }
-
