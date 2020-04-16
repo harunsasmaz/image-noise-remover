@@ -176,11 +176,6 @@ __global__ void reduction(float* image, float* sums, float* sums2, nt size, int 
      time_3 = get_time();
  
      // Part IV: allocate variables
-     north_deriv = (float*) malloc(sizeof(float) * n_pixels);	// north derivative
-     south_deriv = (float*) malloc(sizeof(float) * n_pixels);	// south derivative
-     west_deriv = (float*) malloc(sizeof(float) * n_pixels);	// west derivative
-     east_deriv = (float*) malloc(sizeof(float) * n_pixels);	// east derivative
-     diff_coef  = (float*) malloc(sizeof(float) * n_pixels);	// diffusion coefficient
      
      cudaMalloc((void**)&north_deriv_dev, sizeof(float) * n_pixels);
      cudaMalloc((void**)&south_deriv_dev, sizeof(float) * n_pixels);
@@ -210,6 +205,7 @@ __global__ void reduction(float* image, float* sums, float* sums2, nt size, int 
          // REDUCTION AND STATISTICS
          // --- 3 floating point arithmetic operations per element -> 3*height*width in total
          reduction<<<reduction_blocks, 256>>>(image_dev, sums_dev, sums_dev_2, n_pixels reduction_blocks);
+
          cudaMemcpy(sums, sums_dev, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
          cudaMemcpy(sums2, sums_dev_2, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
 
@@ -226,11 +222,6 @@ __global__ void reduction(float* image, float* sums, float* sums2, nt size, int 
          // --- 32 floating point arithmetic operations per element -> 32*(height-1)*(width-1) in total
          compute1<<<blocks, thread>>>(image_dev, diff_coef_dev, std_dev, width, n_pixels,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
-        
-         //  cudaMemcpy(north_deriv, north_deriv_dev, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost);
-         //  cudaMemcpy(south_deriv, south_deriv_dev, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost);
-         //  cudaMemcpy(east_deriv, east_deriv_dev, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost);
-         //  cudaMemcpy(west_deriv, west_deriv_dev, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost);
 
          // COMPUTE 2
          // divergence and image update --- 10 floating point arithmetic operations per element -> 10*(height-1)*(width-1) in total
@@ -261,11 +252,6 @@ __global__ void reduction(float* image, float* sums, float* sums2, nt size, int 
  
      // Part VII: deallocate variables
      stbi_image_free(image);
-     free(north_deriv);
-     free(south_deriv);
-     free(west_deriv);
-     free(east_deriv);
-     free(diff_coef);
      cudaFree(north_deriv_dev);
      cudaFree(south_deriv_dev);
      cudaFree(east_deriv_dev);
