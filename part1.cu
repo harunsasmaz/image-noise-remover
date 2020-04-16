@@ -39,31 +39,33 @@
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int index = row * width + col;
 
-    if(index >= n) return;
+    if(index < n){
 
-    float image_k = image[index];
+        float image_k = image[index];
 
-    north[index] = image[index - width] - image_k;
-    south[index] = image[index + width] - image_k;
-    west[index] = image[index - 1] - image_k;
-    east[index] = image[index + 1] - image_k;
-    float gradient_square = ( north[index] * north[index] 
-                            + south[index] * south[index] 
-                            + west[index]  * west[index] 
-                            + east[index]  * east[index] ) / (image_k * image_k);
-    float laplacian = (north[index] + south[index] + west[index] + east[index]) / image_k;
-    float num = (0.5 * gradient_square) - ((1.0 / 16.0) * (laplacian * laplacian));
-    float den = 1 + (.25 * laplacian); 
-    float std_dev2 = num / (den * den); 
-    den = (std_dev2 - std_dev) / (std_dev * (1 + std_dev)); 
-    float diff_coef_k = 1.0 / (1.0 + den); 
-    if (diff_coef_k < 0) {
-        diff_coef[index] = 0;
-    } else if (diff_coef_k > 1){
-        diff_coef[index] = 1;
-    } else {
-        diff_coef[index] = diff_coef_k;
+        north[index] = image[index - width] - image_k;
+        south[index] = image[index + width] - image_k;
+        west[index] = image[index - 1] - image_k;
+        east[index] = image[index + 1] - image_k;
+        float gradient_square = ( north[index] * north[index] 
+                                + south[index] * south[index] 
+                                + west[index]  * west[index] 
+                                + east[index]  * east[index] ) / (image_k * image_k);
+        float laplacian = (north[index] + south[index] + west[index] + east[index]) / image_k;
+        float num = (0.5 * gradient_square) - ((1.0 / 16.0) * (laplacian * laplacian));
+        float den = 1 + (.25 * laplacian); 
+        float std_dev2 = num / (den * den); 
+        den = (std_dev2 - std_dev) / (std_dev * (1 + std_dev)); 
+        float diff_coef_k = 1.0 / (1.0 + den); 
+        if (diff_coef_k < 0) {
+            diff_coef[index] = 0;
+        } else if (diff_coef_k > 1){
+            diff_coef[index] = 1;
+        } else {
+            diff_coef[index] = diff_coef_k;
+        }
     }
+
  }
 
  __global__ void compute2(float* image, float* diff_coef, float* north, float* south,
@@ -73,18 +75,20 @@
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int index = row * width + col;
 
-    if(index >= n) return;
+    if(index < n){
 
-    float diff_coef_north = diff_coef[index];	
-    float diff_coef_south = diff_coef[index + width];	
-    float diff_coef_west = diff_coef[index];	        
-    float diff_coef_east = diff_coef[index + 1];					
-    float divergence = diff_coef_north * north[index] 
-                + diff_coef_south * south[index] 
-                + diff_coef_west * west[index] 
-                + diff_coef_east * east[index];
+        float diff_coef_north = diff_coef[index];	
+        float diff_coef_south = diff_coef[index + width];	
+        float diff_coef_west = diff_coef[index];	        
+        float diff_coef_east = diff_coef[index + 1];					
+        float divergence = diff_coef_north * north[index] 
+                            + diff_coef_south * south[index] 
+                            + diff_coef_west * west[index] 
+                            + diff_coef_east * east[index];
 
-    image[index] = image[index] + 0.25 * lambda * divergence;
+        image[index] = image[index] + 0.25 * lambda * divergence;
+    }
+
 }
 
 __global__ void reduction(float* image, float* sums, float* sums2, nt size, int numblocks)
