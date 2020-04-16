@@ -41,20 +41,29 @@
 
     if(index < n){
 
-        north[index] = image[index - width] - image[index];
-        south[index] = image[index + width] - image[index];
-        west[index] = image[index - 1] - image[index];
-        east[index] = image[index + 1] - image[index];
-        float gradient_square = ( north[index] * north[index] 
-                                + south[index] * south[index] 
-                                + west[index]  * west[index] 
-                                + east[index]  * east[index] ) / (image[index] * image[index]);
-        float laplacian = (north[index] + south[index] + west[index] + east[index]) / image[index];
+        float image_k = image[index];
+
+        float north_k = image[index - width] - image_k;
+        float south_k = image[index + width] - image_k;
+        float west_k = image[index - 1] - image_k;
+        float east_k = image[index + 1] - image_k;
+
+        float gradient_square = ( north_k * north_k 
+                                + south_k * south_k
+                                + west_k  * west_k 
+                                + east_k  * east_k ) / (image_k * image_k);
+        float laplacian = (north_k + south_k + west_k + east_k) / image_k;
         float num = (0.5 * gradient_square) - ((1.0 / 16.0) * (laplacian * laplacian));
         float den = 1 + (.25 * laplacian); 
         float std_dev2 = num / (den * den); 
         den = (std_dev2 - std_dev) / (std_dev * (1 + std_dev)); 
-        float diff_coef_k = 1.0 / (1.0 + den); 
+        float diff_coef_k = 1.0 / (1.0 + den);
+
+        north[index] = north_k;
+        south[index] = south_k;
+        east[index]  = east_k;
+        west[index]  = west_k;
+
         if (diff_coef_k < 0) {
             diff_coef[index] = 0;
         } else if (diff_coef_k > 1){
@@ -97,12 +106,14 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
     
-    float mySum = (i < size) ? image[i] : 0;
-    float mySum2 = (i < size) ? image[i] * image[i] : 0;
-    if (i + blockDim.x < n){
-        mySum += image[i + blockDim.x];
-        mySum2 += image[i + blockDim.x] * image[i + blockDim.x];
-    } 
+    float image_i = (i < size) ? image[i] : 0;
+    float mySum = image_i;
+    float mySum2 = image_i * image_i;
+
+    float image_j = (i + blockDim.x < size) ? image[i + blockDim.x] : 0;
+    mySum += image_j;
+    mySum2 += image_j * image_j;
+    
     sdata[tid] = mySum;
     sdata2[tid] = mySum2;
     __syncthreads();
