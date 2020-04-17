@@ -35,11 +35,11 @@
  __global__ void compute1(float* image, float* diff_coef, float std_dev, int width, int height,
                             float* north, float* south, float* east, float* west)
  {
-    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
     int index = row * width + col;
 
-    if(row < height - 1 && col < width - 1){
+    if(row < height - 1 && col < width - 1 && row > 0 && col > 0){
 
         float image_k = image[index];
 

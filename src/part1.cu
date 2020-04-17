@@ -130,14 +130,10 @@
      int n_iter = 50;
      float lambda = 0.5;
      float mean, variance, std_dev;	//local region statistics
-     float *north_deriv, *south_deriv, *west_deriv, *east_deriv; // directional derivatives
      float *north_deriv_dev, *south_deriv_dev, *west_deriv_dev, *east_deriv_dev; // device derivatives
      float tmp, sum, sum2;	// calculation variables
-     float gradient_square, laplacian, num, den, std_dev2, divergence;	// calculation variables
-     float *diff_coef, *diff_coef_dev;	// diffusion coefficient
-     float diff_coef_north, diff_coef_south, diff_coef_west, diff_coef_east;	// directional diffusion coefficients
+     float *diff_coef_dev;	// diffusion coefficient
      unsigned char *image_dev;
-     long k;	// current pixel index
      time_1 = get_time();	
      
      // Part II: parse command line arguments
