@@ -196,8 +196,8 @@
      cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
 
      const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
-     const int block_row = height/16 + (height % 256 == 0 ? 0 : 1);
-     const int block_col = width/16 + (width % 256 == 0 ? 0 : 1);
+     const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
+     const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
      const dim3 blocks(block_row, block_col, 1), threads(16,16,1);
 
     //  float *sums, *sums2, *sums_dev, *sums_dev_2;

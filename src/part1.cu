@@ -35,11 +35,11 @@
  __global__ void compute1(float* image, float* diff_coef, float std_dev, int width, int height,
                             float* north, float* south, float* east, float* west)
  {
-    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
     int index = row * width + col;
 
-    if(row < height - 1 && col < width - 1)
+    if(row < height - 1 && col < width - 1 && row > 0 && col > 0)
     {
         north[index] = image[index - width] - image[index];
         south[index] = image[index + width] - image[index];
@@ -68,11 +68,11 @@
  __global__ void compute2(float* image, float* diff_coef, float* north, float* south,
                                 float* east, float* west, float lambda, int width, int height)
 {
-    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
     int index = row * width + col;
 
-    if(col <  width - 1 && row < height - 1){
+    if(col <  width - 1 && row < height - 1 && row > 0 && col > 0){
 
         float diff_coef_north = diff_coef[index];	
         float diff_coef_south = diff_coef[index + width];	
@@ -184,8 +184,8 @@
      cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
 
      const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
-     const int block_row = height/16 + (height % 256 == 0 ? 0 : 1);
-     const int block_col = width/16 + (width % 256 == 0 ? 0 : 1);
+     const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
+     const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
      const dim3 blocks(block_row, block_col, 1), threads(16,16,1);
 
     //  float *sums, *sums2, *sums_dev, *sums_dev_2;
@@ -215,12 +215,12 @@
  
          //COMPUTE 1
          // --- 32 floating point arithmetic operations per element -> 32*(height-1)*(width-1) in total
-         compute1<<<(blocks, threads)>>>(image_dev, diff_coef_dev, std_dev, width, height,
+         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
 
          // COMPUTE 2
          // divergence and image update --- 10 floating point arithmetic operations per element -> 10*(height-1)*(width-1) in total
-         compute2<<<(blocks, threads)>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
+         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);
 
      }
@@ -236,8 +236,8 @@
      // FOR VALIDATION - DO NOT PARALLELIZE
      float test = 0;
      for (int i = 0; i < height; i++) {
-             for (int j = 0; j < width; j++) {
-                 test += image[i * width + j];
+            for (int j = 0; j < width; j++) {
+                test += image[i * width + j];
          }
      }
      test /= n_pixels;	
