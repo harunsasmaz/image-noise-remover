@@ -35,11 +35,11 @@
  __global__ void compute1(float* image, float* diff_coef, float std_dev, int width, int n,
                             float* north, float* south, float* east, float* west)
  {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int index = row * width + col;
 
-    if(index < n){
+    if(index < n - width - 1){
 
         north[index] = image[index - width] - image[index];
         south[index] = image[index + width] - image[index];
@@ -69,11 +69,11 @@
  __global__ void compute2(float* image, float* diff_coef, float* north, float* south,
                                 float* east, float* west, float lambda, int width, int n)
 {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int index = row * width + col;
 
-    if(index < n){
+    if(index < n - width - 1){
 
         float diff_coef_north = diff_coef[index];	
         float diff_coef_south = diff_coef[index + width];	

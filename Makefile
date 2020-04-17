@@ -292,7 +292,7 @@ run: build
 	$(EXEC) ./part1
 
 clean:
-	rm -f part1 part1.o noise_remover noise_remover.o
+	rm -f *.png *.o part1 noise_remover 
 	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/part1
 
 clobber: clean
