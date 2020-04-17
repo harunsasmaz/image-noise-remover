@@ -32,7 +32,7 @@
      return( ((double)TV.tv_sec) + kMicro * ((double)TV.tv_usec) );
  }
 
- __global__ void compute1(float* image, float* diff_coef, float std_dev, int width, int height,
+ __global__ void compute1(unsigned char* image, float* diff_coef, float std_dev, int width, int height,
                             float* north, float* south, float* east, float* west)
  {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -75,7 +75,7 @@
 
  }
 
- __global__ void compute2(float* image, float* diff_coef, float* north, float* south,
+ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, float* south,
                                 float* east, float* west, float lambda, int width, int height)
 {
     __shared__ float temp[blockDim.y + 2][blockDim.x + 2];

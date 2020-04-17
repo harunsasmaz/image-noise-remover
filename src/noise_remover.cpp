@@ -154,8 +154,8 @@ int main(int argc, char *argv[]) {
 	// FOR VALIDATION - DO NOT PARALLELIZE
 	float test = 0;
 	for (int i = 0; i < height; i++) {
-			for (int j = 0; j < width; j++) {
-				test += image[i * width + j];
+		for (int j = 0; j < width; j++) {
+			test += image[i * width + j];
 		}
 	}
 	test /= n_pixels;	
