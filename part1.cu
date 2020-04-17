@@ -91,15 +91,15 @@
 
 __global__ void reduction(float* image, float* sums, float* sums2, int size, int numblocks)
 {
-    extern __shared__ float sdata[numblocks];
-    extern __shared__ float sdata2[numblocks];
+    __shared__ float sdata[numblocks];
+    __shared__ float sdata2[numblocks];
 
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
     
     float mySum = (i < size) ? image[i] : 0;
     float mySum2 = (i < size) ? image[i] * image[i] : 0;
-    if (i + blockDim.x < n){
+    if (i + blockDim.x < size){
         mySum += image[i + blockDim.x];
         mySum2 += image[i + blockDim.x] * image[i + blockDim.x];
     } 
@@ -191,7 +191,7 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
 
      float *sums, *sums2, *sums_dev, *sums_dev_2;
      sums = (float*) malloc(sizeof(float) * reduction_blocks);
-     sums_2 = (float*) malloc(sizeof(float) * reduction_blocks);
+     sums2 = (float*) malloc(sizeof(float) * reduction_blocks);
      cudaMalloc((void**)&sums_dev, sizeof(float)*reduction_blocks);
      cudaMalloc((void**)&sums_dev_2, sizeof(float)*reduction_blocks);
 
@@ -202,7 +202,7 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
          sum2 = 0;
          // REDUCTION AND STATISTICS
          // --- 3 floating point arithmetic operations per element -> 3*height*width in total
-         reduction<<<reduction_blocks, 256>>>(image_dev, sums_dev, sums_dev_2, n_pixels reduction_blocks);
+         reduction<<<(reduction_blocks, 256)>>>(image_dev, sums_dev, sums_dev_2, n_pixels, reduction_blocks);
 
          cudaMemcpy(sums, sums_dev, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
          cudaMemcpy(sums2, sums_dev_2, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
@@ -218,12 +218,12 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
  
          //COMPUTE 1
          // --- 32 floating point arithmetic operations per element -> 32*(height-1)*(width-1) in total
-         compute1<<<blocks, thread>>>(image_dev, diff_coef_dev, std_dev, width, n_pixels,
+         compute1<<<(blocks, threads)>>>(image_dev, diff_coef_dev, std_dev, width, n_pixels,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
 
          // COMPUTE 2
          // divergence and image update --- 10 floating point arithmetic operations per element -> 10*(height-1)*(width-1) in total
-         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
+         compute2<<<(blocks, threads)>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, n_pixels);
 
      }

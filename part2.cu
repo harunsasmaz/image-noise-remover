@@ -78,8 +78,8 @@
  __global__ void compute2(float* image, float* diff_coef, float* north, float* south,
                                 float* east, float* west, float lambda, int width, int n)
 {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int index = row * width + col;
 
     if(index < n - width - 1){
@@ -100,8 +100,8 @@
 
 __global__ void reduction(float* image, float* sums, float* sums2, int size, int numblocks)
 {
-    extern __shared__ float sdata[numblocks];
-    extern __shared__ float sdata2[numblocks];
+    __shared__ float sdata[numblocks];
+    __shared__ float sdata2[numblocks];
 
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
@@ -213,7 +213,7 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
          sum2 = 0;
          // REDUCTION AND STATISTICS
          // --- 3 floating point arithmetic operations per element -> 3*height*width in total
-         reduction<<<reduction_blocks, 256>>>(image_dev, sums_dev, sums_dev_2, n_pixels reduction_blocks);
+         reduction<<<reduction_blocks, 256>>>(image_dev, sums_dev, sums_dev_2, n_pixels, reduction_blocks);
 
          cudaMemcpy(sums, sums_dev, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
          cudaMemcpy(sums2, sums_dev_2, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
@@ -229,7 +229,7 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
  
          //COMPUTE 1
          // --- 32 floating point arithmetic operations per element -> 32*(height-1)*(width-1) in total
-         compute1<<<blocks, thread>>>(image_dev, diff_coef_dev, std_dev, width, n_pixels,
+         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, n_pixels,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
 
          // COMPUTE 2

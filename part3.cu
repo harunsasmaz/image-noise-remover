@@ -35,11 +35,11 @@
  __global__ void compute1(float* image, float* diff_coef, float std_dev, int width, int n,
                             float* north, float* south, float* east, float* west)
  {
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
+    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
     int index = row * width + col;
 
-    if(index < n){
+    if(index < n - width - 1){
 
         float image_k = image[index];
 
@@ -113,8 +113,8 @@
 
 __global__ void reduction(float* image, float* sums, float* sums2, int size, int numblocks)
 {
-    extern __shared__ float sdata[numblocks];
-    extern __shared__ float sdata2[numblocks];
+    __shared__ float sdata[numblocks];
+    __shared__ float sdata2[numblocks];
 
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
