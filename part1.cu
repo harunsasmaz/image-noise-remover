@@ -226,9 +226,9 @@ __global__ void reduction(float* image, float* sums, float* sums2, int size, int
          compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, n_pixels);
 
-         cudaMemcpy(image, image_dev, sizeof(float)*n_pixels, cudaMemcpyDeviceToHost);
-
      }
+
+     cudaMemcpy(image, image_dev, sizeof(float)*n_pixels, cudaMemcpyDeviceToHost);
      time_5 = get_time();
  
      // Part VI: write image to file
