@@ -263,7 +263,7 @@ endif
 CC = g++
 CFLAGS  = -std=c++0x -g -Wall -O3
 
-all: build noise_remover
+all: part1 part2 noise_remover
 
 noise_remover: noise_remover.o
 	$(CC) $(CFLAGS) noise_remover.o -lm -o noise_remover
@@ -271,28 +271,20 @@ noise_remover: noise_remover.o
 noise_remover.o: noise_remover.cpp
 	$(CC) $(CFLAGS) -c  noise_remover.cpp
 
-build: part1 
-
-check.deps:
-ifeq ($(SAMPLE_ENABLED),0)
-	@echo "Sample will be waived due to the above missing dependencies"
-else
-	@echo "Sample is ready - all dependencies have been met"
-endif
-
 part1.o:part1.cu
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
+	$(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
 part1: part1.o
-	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
-	$(EXEC) mkdir -p ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)
-	$(EXEC) cp $@ ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)
+	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 
-run: build
-	$(EXEC) ./part1
+part2.o:part2.cu
+	$(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
+
+part2: part2.o
+	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 
 clean:
-	rm -f *.png *.o part1 noise_remover 
+	rm -f *.png *.o part1 part2 noise_remover 
 	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/part1
 
 clobber: clean

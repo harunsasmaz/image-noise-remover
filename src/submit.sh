@@ -8,11 +8,12 @@
 #
 #SBATCH --job-name=denoise
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=16
+#SBATCH --ntasks-per-node=1
 #SBATCH --partition=short
 #SBATCH --time=00:30:00
 #SBATCH --output=denoise.out
 #SBATCH --exclusive
+#SBATCH --gres=gpu:tesla_k20m:1
 
 ################################################################################
 ##################### !!! DO NOT EDIT ABOVE THIS LINE !!! ######################
@@ -30,11 +31,14 @@ echo "Running compiled binary..."
 
 
 #Strong scaling
-echo "1: serial code"
+echo "0: serial code"
 ./noise_remover -i coffee.pgm -iter 200 -o serial.png
 
-echo "2: part 1 code"
+echo "1: part 1 code"
 ./part1 -i coffee.pgm -iter 200 -o part1.png
 
-echo "3: part 2 code"
+echo "2: part 2 code"
 ./part2 -i coffee.pgm -iter 200 -o part2.png
+
+echo "3: part 3 code"
+./part3 -i coffee.pgm -iter 200 -o part3.png
