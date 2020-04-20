@@ -32,6 +32,9 @@ double get_time() {
     return( ((double)TV.tv_sec) + kMicro * ((double)TV.tv_usec) );
 }
 
+__global__ void warmup(){}
+
+
 __global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int height,
                         float* north, float* south, float* east, float* west)
 {
@@ -196,6 +199,9 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&sums_dev, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&sums_dev_2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
+
+    // warm up kernel
+    warmup<<<blocks, threads>>>();
 
     time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
