@@ -32,16 +32,20 @@
      return( ((double)TV.tv_sec) + kMicro * ((double)TV.tv_usec) );
  }
 
- __global__ void compute1(unsigned char* image, float* diff_coef, float std_dev, int width, int height,
+__global__ void warmup(){}
+
+__global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int n,
                             float* north, float* south, float* east, float* west)
- {
+{
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int index = row * width + col;
 
-    if(row < height - 1 && col < width - 1 && row > 0 && col > 0){
+    if(col < width - 1 && row < height - 1 && row > 0 && col > 0)
+    {
 
         float image_k = image[index];
+        float deviation = std_dev[0];
 
         float north_k = image[index - width] - image_k;
         float south_k = image[index + width] - image_k;
@@ -56,7 +60,7 @@
         float num = (0.5 * gradient_square) - ((1.0 / 16.0) * (laplacian * laplacian));
         float den = 1 + (.25 * laplacian); 
         float std_dev2 = num / (den * den); 
-        den = (std_dev2 - std_dev) / (std_dev * (1 + std_dev)); 
+        den = (std_dev2 - deviation) / (deviation * (1 + deviation)); 
         float diff_coef_k = 1.0 / (1.0 + den);
 
         north[index] = north_k;
@@ -73,78 +77,79 @@
         }
     }
 
- }
+}
 
- __global__ void compute2(unsigned char* image, float* diff_coef, float* north, float* south,
+__global__ void compute2(unsigned char* image, float* diff_coef, float* north, float* south,
                                 float* east, float* west, float lambda, int width, int height)
 {
-    __shared__ float temp[blockDim.y + 2][blockDim.x + 2];
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int index = row * width + col;
 
-    int col = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int row = blockIdx.y * blockDim.y + threadIdx.y + 1;
-    int g_index = row * width + col;
-    int tx = threadIdx.x + 1, ty = threadIdx.y + 1;
+    if(row < height - 1 && col < width - 1 && row > 0 && col > 0){
 
-    if(col - 1 >= width || row - 1 >= height) return;
+        float diff_coef_north = diff_coef[index];	
+        float diff_coef_south = diff_coef[index + width];	
+        float diff_coef_west = diff_coef[index];	        
+        float diff_coef_east = diff_coef[index + 1];					
+        float divergence = diff_coef_north * north[index] 
+                            + diff_coef_south * south[index] 
+                            + diff_coef_west * west[index] 
+                            + diff_coef_east * east[index];
 
-    temp[ty][tx] = diff_coef[g_index];
-
-    if(threadIdx.x < 1 || threadIdx.y < 1)
-    {
-        temp[ty - 1][tx - 1] = diff_coef[g_index - width - 1];
+        image[index] = image[index] + 0.25 * lambda * divergence;
     }
-
-    __syncthreads();
-
-    float diff_coef_north = temp[ty][tx];	
-    float diff_coef_south = temp[ty + 1][tx];	
-    float diff_coef_west = temp[ty][tx];	        
-    float diff_coef_east = temp[ty][tx + 1];					
-    float divergence = diff_coef_north * north[g_index] 
-                        + diff_coef_south * south[g_index] 
-                        + diff_coef_west * west[g_index] 
-                        + diff_coef_east * east[g_index];
-
-    image[g_index] = image[g_index] + 0.25 * lambda * divergence;
-    
 
 }
 
-// __global__ void reduction(float* image, float* sums, float* sums2, int size, int numblocks)
-// {
-//     __shared__ float sdata[numblocks];
-//     __shared__ float sdata2[numblocks];
+__global__ void reduction(float* image, float* sums, float* sums2, int size)
+{
+    extern __shared__ float sdata[];
+    extern __shared__ float sdata2[];
 
-//     unsigned int tid = threadIdx.x;
-//     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
     
-//     float image_i = (i < size) ? image[i] : 0;
-//     float mySum = image_i;
-//     float mySum2 = image_i * image_i;
+    float image_i = (i < size) ? image[i] : 0;
+    float mySum = image_i;
+    float mySum2 = image_i * image_i;
 
-//     float image_j = (i + blockDim.x < size) ? image[i + blockDim.x] : 0;
-//     mySum += image_j;
-//     mySum2 += image_j * image_j;
+    float image_j = (i + blockDim.x < size) ? image[i + blockDim.x] : 0;
+    mySum += image_j;
+    mySum2 += image_j * image_j;
     
-//     sdata[tid] = mySum;
-//     sdata2[tid] = mySum2;
-//     __syncthreads();
+    sdata[tid] = mySum;
+    sdata2[tid] = mySum2;
+    __syncthreads();
 
-//     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-//         if (tid < s) {
-//           sdata[tid] = mySum = mySum + sdata[tid + s];
-//           sdata2[tid] = mySum2 = mySum2 + sdata2[tid + s];
-//         }
-//         __syncthreads();
-//     }
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+          sdata[tid] = mySum = mySum + sdata[tid + s];
+          sdata2[tid] = mySum2 = mySum2 + sdata2[tid + s];
+        }
+        __syncthreads();
+    }
 
-//     if (tid == 0){
-//         sums[blockIdx.x] = mySum;
-//         sums2[blockIdx.x] = mySum2;
-//     }
-// }
+    if (tid == 0){
+        sums[blockIdx.x] = mySum;
+        sums2[blockIdx.x] = mySum2;
+    }
+}
+
+__global__ void standard_dev(float* sums, float* sums2, float* std_dev, int size, int numBlocks)
+{
+    float sum = 0, sum2 = 0;
+    for(int i=0; i < numBlocks; i++){
+        sum += sums[i];
+        sum2 += sums2[i];
+    }
+
+    float mean = sum / size;
+    float variance = (sum2 / size) - mean * mean; // --- 3 floating point arithmetic operations
+    std_dev[0] = variance / (mean * mean);
+}
  
- int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
      // Part I: allocate and initialize variables
      double time_0, time_1, time_2, time_3, time_4, time_5, time_6, time_7, time_8;	// time variables
      time_0 = get_time();
@@ -153,15 +158,10 @@
      int width, height, pixelWidth, n_pixels;
      int n_iter = 50;
      float lambda = 0.5;
-     float mean, variance, std_dev;	//local region statistics
-     float *north_deriv, *south_deriv, *west_deriv, *east_deriv; // directional derivatives
      float *north_deriv_dev, *south_deriv_dev, *west_deriv_dev, *east_deriv_dev; // device derivatives
-     float tmp, sum, sum2;	// calculation variables
-     float gradient_square, laplacian, num, den, std_dev2, divergence;	// calculation variables
-     float *diff_coef, *diff_coef_dev;	// diffusion coefficient
-     float diff_coef_north, diff_coef_south, diff_coef_west, diff_coef_east;	// directional diffusion coefficients
+     float *sums, *sums2, *std_dev;	// calculation variables
+     float *diff_coef_dev;	// diffusion coefficient
      unsigned char *image_dev;
-     long k;	// current pixel index
      time_1 = get_time();	
      
      // Part II: parse command line arguments
@@ -198,62 +198,49 @@
  
      // Part IV: allocate variables
      
-     cudaMalloc((void**)&north_deriv_dev, sizeof(float) * n_pixels);
-     cudaMalloc((void**)&south_deriv_dev, sizeof(float) * n_pixels);
-     cudaMalloc((void**)&west_deriv_dev, sizeof(float) * n_pixels);
-     cudaMalloc((void**)&east_deriv_dev, sizeof(float) * n_pixels);
-     cudaMalloc((void**)&diff_coef_dev, sizeof(float) * n_pixels);
-     cudaMalloc((void**)&image_dev, sizeof(unsigned char) * n_pixels);
+    cudaMalloc((void**)&north_deriv_dev, sizeof(float) * n_pixels);
+    cudaMalloc((void**)&south_deriv_dev, sizeof(float) * n_pixels);
+    cudaMalloc((void**)&west_deriv_dev, sizeof(float) * n_pixels);
+    cudaMalloc((void**)&east_deriv_dev, sizeof(float) * n_pixels);
+    cudaMalloc((void**)&diff_coef_dev, sizeof(float) * n_pixels);
+    cudaMalloc((void**)&image_dev, sizeof(unsigned char) * n_pixels);
 
-     cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
+    cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
 
-     const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
-     const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
-     const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
-     const dim3 blocks(block_row, block_col, 1), threads(16,16,1);
+    const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
+    const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
+    const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
+    const dim3 blocks(block_col, block_row), threads(16,16);
 
-    //  float *sums, *sums2, *sums_dev, *sums_dev_2;
-    //  sums = (float*) malloc(sizeof(float) * reduction_blocks);
-    //  sums_2 = (float*) malloc(sizeof(float) * reduction_blocks);
-    //  cudaMalloc((void**)&sums_dev, sizeof(float)*reduction_blocks);
-    //  cudaMalloc((void**)&sums_dev_2, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&sums_dev, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&sums_dev_2, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&std_dev, sizeof(float));
+
+     //warm up kernel
+     warmup<<<blocks,threads>>>();
 
      time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
      for (int iter = 0; iter < n_iter; iter++) {
-         sum = 0;
-         sum2 = 0;
-         // REDUCTION AND STATISTICS
-         // --- 3 floating point arithmetic operations per element -> 3*height*width in total
-        //  reduction<<<reduction_blocks, 256>>>(image_dev, sums_dev, sums_dev_2, n_pixels reduction_blocks);
 
-        //  cudaMemcpy(sums, sums_dev, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
-        //  cudaMemcpy(sums2, sums_dev_2, sizeof(float)*reduction_blocks, cudaMemcpyDeviceToHost);
+        reduction<<<reduction_blocks, 256, 2*256*sizeof(float)>>>(image_dev, sums, sums2, n_pixels);
+        
+        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, reduction_blocks);
 
-        //  for(int i=0; i < reduction_blocks; i++){
-        //     sum += sums[i];
-        //     sum2 += sums2[i];
-        //  }
-
-         mean = sum / n_pixels; // --- 1 floating point arithmetic operations
-         variance = (sum2 / n_pixels) - mean * mean; // --- 3 floating point arithmetic operations
-         std_dev = variance / (mean * mean); // --- 2 floating point arithmetic operations
- 
-         //COMPUTE 1
-         // --- 32 floating point arithmetic operations per element -> 32*(height-1)*(width-1) in total
-         compute1<<<blocks, thread>>>(image_dev, diff_coef_dev, std_dev, width, height,
+        compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
 
-         // COMPUTE 2
-         // divergence and image update --- 10 floating point arithmetic operations per element -> 10*(height-1)*(width-1) in total
-         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
+
+        compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);
 
+        cudaDeviceSynchronize();
      }
-     cudaMemcpy(image, image_dev, sizeof(unsigned char)*n_pixels, cudaMemcpyDeviceToHost);
+     
      time_5 = get_time();
  
      // Part VI: write image to file
+     cudaMemcpy(image, image_dev, sizeof(unsigned char)*n_pixels, cudaMemcpyDeviceToHost);
      stbi_write_png(outputname, width, height, pixelWidth, image, 0);
      time_6 = get_time();
  
@@ -261,9 +248,9 @@
      // FOR VALIDATION - DO NOT PARALLELIZE
      float test = 0;
      for (int i = 0; i < height; i++) {
-             for (int j = 0; j < width; j++) {
-                 test += image[i * width + j];
-         }
+        for (int j = 0; j < width; j++) {
+            test += image[i * width + j];
+        }
      }
      test /= n_pixels;	
  
@@ -278,8 +265,9 @@
      cudaFree(west_deriv_dev);
      cudaFree(diff_coef_dev);
      cudaFree(image_dev);
-    //  cudaFree(sums_dev);
-    //  cudaFree(sums_dev_2);
+     cudaFree(std_dev);
+     cudaFree(sums);
+     cudaFree(sums2);
      time_8 = get_time();
  
      // print

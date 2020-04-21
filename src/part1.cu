@@ -90,8 +90,8 @@ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, f
 
 __global__ void reduction(unsigned char* image, float* sums, float* sums2, int size)
 {
-    __shared__ float sdata[gridDim.x];
-    __shared__ float sdata2[gridDim.x];
+    extern __shared__ float sdata[];
+    extern __shared__ float sdata2[];
 
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
     for (int iter = 0; iter < n_iter; iter++) {
 
-        reduction<<<reduction_blocks, 256>>>(image_dev, sums, sums2, n_pixels);
+        reduction<<<reduction_blocks, 256, 2*256*sizeof(float)>>>(image_dev, sums, sums2, n_pixels);
         
         standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, reduction_blocks);
 
