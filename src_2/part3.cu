@@ -236,8 +236,8 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
 
-     //warm up kernel
-    //warmup<<<blocks,threads>>>();
+    // warm up kernel
+    // warmup<<<blocks,threads>>>();
 
      time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
@@ -245,12 +245,11 @@ int main(int argc, char *argv[]) {
 
         reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
         
-	int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);  
+	    int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);  
         standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
-
 
         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);

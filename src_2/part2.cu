@@ -32,7 +32,7 @@
      return( ((double)TV.tv_sec) + kMicro * ((double)TV.tv_usec) );
  }
 
-__global__ void warmup(){}
+ __global__ void warmup(){}
 
 __global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int height,
                             float* north, float* south, float* east, float* west)
@@ -45,12 +45,12 @@ __global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev,
     {
 
         float image_k = image[index];
-        float deviation = std_dev[0];
-
         float north_k = image[index - width] - image_k;
         float south_k = image[index + width] - image_k;
         float west_k = image[index - 1] - image_k;
         float east_k = image[index + 1] - image_k;
+
+        float deviation = std_dev[0];
 
         float gradient_square = ( north_k * north_k 
                                 + south_k * south_k
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&std_dev, sizeof(float));
 
      //warm up kernel
-     warmup<<<blocks,threads>>>();
+     // warmup<<<blocks,threads>>>();
 
      time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
@@ -225,11 +225,11 @@ int main(int argc, char *argv[]) {
 
         reduction<<<reduction_blocks,BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
         
-        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, reduction_blocks);
+        int numblocks =reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);
+        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
-
 
         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);

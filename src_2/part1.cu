@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&std_dev, sizeof(float));
 
     // warm up kernel
-    //warmup<<<blocks, threads>>>();
+    // warmup<<<blocks, threads>>>();
 
     time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
