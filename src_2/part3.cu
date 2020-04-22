@@ -36,7 +36,7 @@
 
 __global__ void warmup(){}
 
-__global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int n,
+__global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int height,
                             float* north, float* south, float* east, float* west)
 {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -97,11 +97,11 @@ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, f
         temp[ty][tx] = diff_coef[index];
 
         if(tx == 0){
-            temp[ty][BLOCK_SIZE] = diff_coef[index + BLOCK_SIZE];
+            temp[ty][TILE_DIM] = diff_coef[index + TILE_DIM];
         }
 
         if(ty == 0){
-            temp[BLOCK_SIZE][tx] = diff_coef[BLOCK_SIZE * width + col];
+            temp[TILE_DIM][tx] = diff_coef[TILE_DIM * width + col];
         }
 
         __syncthreads();
@@ -122,7 +122,7 @@ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, f
 
 }
 
-__global__ void reduction(float* image, float* sums, float* sums2, int size)
+__global__ void reduction(unsigned char* image, float* sums, float* sums2, int size)
 {
     __shared__ float sdata[BLOCK_SIZE];
     __shared__ float sdata2[BLOCK_SIZE];
@@ -232,12 +232,12 @@ int main(int argc, char *argv[]) {
     const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
     const dim3 blocks(block_col, block_row), threads(16,16);
 
-    cudaMalloc((void**)&sums_dev, sizeof(float)*reduction_blocks);
-    cudaMalloc((void**)&sums_dev_2, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&sums, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
 
      //warm up kernel
-     warmup<<<blocks,threads>>>();
+    //warmup<<<blocks,threads>>>();
 
      time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
@@ -245,7 +245,8 @@ int main(int argc, char *argv[]) {
 
         reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
         
-        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, reduction_blocks);
+	int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);  
+        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
