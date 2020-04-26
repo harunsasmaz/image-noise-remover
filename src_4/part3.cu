@@ -17,8 +17,8 @@
  #define STB_IMAGE_WRITE_IMPLEMENTATION
  #include "stb_image_write.h"
  
- #define BLOCK_SIZE 256
- #define TILE_DIM 16
+ #define BLOCK_SIZE 64
+ #define TILE_DIM 8
  #define MATCH(s) (!strcmp(argv[ac], (s)))
  
  // returns the current time
@@ -36,7 +36,7 @@
 
 __global__ void warmup(){}
 
-__global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int n,
+__global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev, int width, int height,
                             float* north, float* south, float* east, float* west)
 {
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -46,15 +46,14 @@ __global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev,
     if(col < width - 1 && row < height - 1 && row > 0 && col > 0)
     {
 
-        float image_k = image[index];
-        float deviation = std_dev[0];
-
-        float north_k = image[index - width] - image_k;
-        float south_k = image[index + width] - image_k;
-        float west_k = image[index - 1] - image_k;
-        float east_k = image[index + 1] - image_k;
-
-        float gradient_square = ( north_k * north_k 
+        float north_k, south_k, west_k, east_k, image_k, deviation, coef;
+        image_k = image[index];
+        deviation = std_dev[0];
+        north[index] = north_k = image[index - width] - image_k;
+        south[index] = south_k = image[index + width] - image_k;
+        west[index] = west_k = image[index - 1] - image_k;
+        east[index] = east_k = image[index + 1] - image_k;
+        float gradient_square = ( north_k * north_k
                                 + south_k * south_k
                                 + west_k  * west_k 
                                 + east_k  * east_k ) / (image_k * image_k);
@@ -63,22 +62,15 @@ __global__ void compute1(unsigned char* image, float* diff_coef, float* std_dev,
         float den = 1 + (.25 * laplacian); 
         float std_dev2 = num / (den * den); 
         den = (std_dev2 - deviation) / (deviation * (1 + deviation)); 
-        float diff_coef_k = 1.0 / (1.0 + den);
-
-        north[index] = north_k;
-        south[index] = south_k;
-        east[index]  = east_k;
-        west[index]  = west_k;
-
-        if (diff_coef_k < 0) {
+        coef = 1.0 / (1.0 + den); 
+        if (coef < 0) {
             diff_coef[index] = 0;
-        } else if (diff_coef_k > 1){
+        } else if (coef > 1){
             diff_coef[index] = 1;
         } else {
-            diff_coef[index] = diff_coef_k;
-        }
-    }
-
+            diff_coef[index] = coef;
+   	 }
+   }
 }
 
 __global__ void compute2(unsigned char* image, float* diff_coef, float* north, float* south,
@@ -92,52 +84,52 @@ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, f
     int row = by * blockDim.y + ty;
     int index = row * width + col;
 
-    if(row < height - 1 && col < width - 1){
+    
 
         temp[ty][tx] = diff_coef[index];
 
         if(tx == 0){
-            temp[ty][BLOCK_SIZE] = diff_coef[index + BLOCK_SIZE];
+            temp[ty][TILE_DIM] = diff_coef[index + TILE_DIM];
         }
 
         if(ty == 0){
-            temp[BLOCK_SIZE][tx] = diff_coef[BLOCK_SIZE * width + col];
+            temp[TILE_DIM][tx] = diff_coef[(TILE_DIM + row) * width + col];
         }
 
         __syncthreads();
 
-        float diff_coef_north = temp[ty][tx];	
-        float diff_coef_south = temp[ty + 1][tx];	
-        float diff_coef_west = temp[ty][tx];	        
-        float diff_coef_east = temp[ty][tx + 1];
+	if(row > 0 && col > 0 && row < height - 1 && col < width - 1){
 
-        float divergence = diff_coef_north * north[index] 
+       		float diff_coef_north = temp[ty][tx];	
+        	float diff_coef_south = temp[ty + 1][tx];	
+        	float diff_coef_west = temp[ty][tx];	        
+        	float diff_coef_east = temp[ty][tx + 1];
+
+        	float divergence = diff_coef_north * north[index] 
                             + diff_coef_south * south[index] 
                             + diff_coef_west * west[index] 
                             + diff_coef_east * east[index];
 
-        if(row > 0 && col > 0)
-            image[index] = image[index] + 0.25 * lambda * divergence;
-    }
+        
+           	 image[index] = image[index] + 0.25 * lambda * divergence;
+    	}
 
 }
 
-__global__ void reduction(float* image, float* sums, float* sums2, int size)
+__global__ void reduction(unsigned char* image, float* sums, float* sums2, int size)
 {
     __shared__ float sdata[BLOCK_SIZE];
     __shared__ float sdata2[BLOCK_SIZE];
 
     unsigned int tid = threadIdx.x;
     unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
-    
-    float image_i = (i < size) ? image[i] : 0;
-    float mySum = image_i;
-    float mySum2 = image_i * image_i;
 
-    float image_j = (i + blockDim.x < size) ? image[i + blockDim.x] : 0;
-    mySum += image_j;
-    mySum2 += image_j * image_j;
-    
+    float mySum = (i < size) ? image[i] : 0;
+    float mySum2 = (i < size) ? image[i] * image[i] : 0;
+    if (i + blockDim.x < size){
+        mySum += image[i + blockDim.x];
+        mySum2 += image[i + blockDim.x] * image[i + blockDim.x];
+    } 
     sdata[tid] = mySum;
     sdata2[tid] = mySum2;
     __syncthreads();
@@ -227,17 +219,17 @@ int main(int argc, char *argv[]) {
 
     cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
 
-    const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
-    const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
-    const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
-    const dim3 blocks(block_col, block_row), threads(16,16);
+    const int reduction_blocks = n_pixels/BLOCK_SIZE + (n_pixels % BLOCK_SIZE == 0 ? 0 : 1);
+    const int block_row = height/TILE_DIM + (height % TILE_DIM == 0 ? 0 : 1);
+    const int block_col = width/TILE_DIM + (width % TILE_DIM == 0 ? 0 : 1);
+    const dim3 blocks(block_col, block_row), threads(TILE_DIM,TILE_DIM);
 
-    cudaMalloc((void**)&sums_dev, sizeof(float)*reduction_blocks);
-    cudaMalloc((void**)&sums_dev_2, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&sums, sizeof(float)*reduction_blocks);
+    cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
 
-     //warm up kernel
-     warmup<<<blocks,threads>>>();
+    // warm up kernel
+    // warmup<<<blocks,threads>>>();
 
      time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
@@ -245,11 +237,11 @@ int main(int argc, char *argv[]) {
 
         reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
         
-        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, reduction_blocks);
+	    int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);  
+        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
-
 
         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);

@@ -17,9 +17,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define BLOCK_SIZE 256
 #define MATCH(s) (!strcmp(argv[ac], (s)))
-
+#define BLOCK_SIZE 1024
+#define TILE_DIM 32
 // returns the current time
 static const double kMicro = 1.0e-6;
 double get_time() {
@@ -192,32 +192,36 @@ int main(int argc, char *argv[]) {
 
     cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
 
-    const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
-    const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
-    const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
-    const dim3 blocks(block_col, block_row), threads(16,16);
+    const int reduction_blocks = n_pixels/BLOCK_SIZE + (n_pixels % BLOCK_SIZE == 0 ? 0 : 1);
+    const int block_row = height/TILE_DIM + (height % TILE_DIM == 0 ? 0 : 1);
+    const int block_col = width/TILE_DIM + (width % TILE_DIM == 0 ? 0 : 1);
+    const dim3 blocks(block_col, block_row), threads(TILE_DIM,TILE_DIM);
 
     cudaMalloc((void**)&sums, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
 
     // warm up kernel
+    // warmup<<<blocks, threads>>>();
 
-    
     time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
     for (int iter = 0; iter < n_iter; iter++) {
 
         reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
-        
-        standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, reduction_blocks);
-
+        //puts(cudaGetErrorString(cudaGetLastError()));
+        int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);
+	standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
+	//puts(cudaGetErrorString(cudaGetLastError()));
+	
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
+	//puts(cudaGetErrorString(cudaGetLastError()));
 
         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);
-
+	
+	//puts(cudaGetErrorString(cudaGetLastError()));
         cudaDeviceSynchronize();
     }
 

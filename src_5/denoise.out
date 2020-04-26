@@ -3,7 +3,7 @@ core file size          (blocks, -c) 0
 data seg size           (kbytes, -d) unlimited
 scheduling priority             (-e) 0
 file size               (blocks, -f) unlimited
-pending signals                 (-i) 514841
+pending signals                 (-i) 514842
 max locked memory       (kbytes, -l) unlimited
 max memory size         (kbytes, -m) 153600000
 open files                      (-n) 51200
@@ -24,58 +24,58 @@ Reading image...
 Image Read. Width : 5184, Height : 3456, nComp: 1
 Time spent in different stages of the application:
  0.000001 s => Part I: allocate and initialize variables
- 0.000006 s => Part II: parse command line arguments
- 0.017126 s => Part III: read image
- 0.001946 s => Part IV: allocate variables
-77.094835 s => Part V: compute
- 1.064107 s => Part VI: write image to file
- 0.025161 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
- 0.025161 s => Part VIII: deallocate variables
-Total time: 78.205426 s
+ 0.000005 s => Part II: parse command line arguments
+ 0.015591 s => Part III: read image
+ 0.001788 s => Part IV: allocate variables
+77.094851 s => Part V: compute
+ 1.064954 s => Part VI: write image to file
+ 0.024516 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.024516 s => Part VIII: deallocate variables
+Total time: 78.203844 s
 Average of sum of pixels: 116.074287
-GFLOPS: 1.045275
+GFLOPS: 1.045274
 1: part 1 code
 Reading image...
 Image Read. Width : 5184, Height : 3456, nComp: 1
 Time spent in different stages of the application:
  0.000001 s => Part I: allocate and initialize variables
- 0.000011 s => Part II: parse command line arguments
- 0.015581 s => Part III: read image
- 0.107367 s => Part IV: allocate variables
- 1.646344 s => Part V: compute
- 2.938922 s => Part VI: write image to file
- 0.056746 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
- 0.056746 s => Part VIII: deallocate variables
-Total time:  4.802007 s
-Average of sum of pixels: 116.075806
-GFLOPS: 48.948025
+ 0.000012 s => Part II: parse command line arguments
+ 0.014171 s => Part III: read image
+ 0.098577 s => Part IV: allocate variables
+ 1.299482 s => Part V: compute
+ 2.930511 s => Part VI: write image to file
+ 0.056921 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.056921 s => Part VIII: deallocate variables
+Total time:  4.436396 s
+Average of sum of pixels: 116.075790
+GFLOPS: 62.013393
 2: part 2 code
 Reading image...
 Image Read. Width : 5184, Height : 3456, nComp: 1
 Time spent in different stages of the application:
  0.000001 s => Part I: allocate and initialize variables
  0.000011 s => Part II: parse command line arguments
- 0.015357 s => Part III: read image
- 0.106965 s => Part IV: allocate variables
- 2.082374 s => Part V: compute
- 2.919960 s => Part VI: write image to file
- 0.056633 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
- 0.056633 s => Part VIII: deallocate variables
-Total time:  5.218074 s
-Average of sum of pixels: 116.075806
-GFLOPS: 38.698757
+ 0.014761 s => Part III: read image
+ 0.089264 s => Part IV: allocate variables
+ 1.234570 s => Part V: compute
+ 2.932766 s => Part VI: write image to file
+ 0.056944 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.056944 s => Part VIII: deallocate variables
+Total time:  4.365457 s
+Average of sum of pixels: 116.075790
+GFLOPS: 65.273964
 3: part 3 code
 Reading image...
 Image Read. Width : 5184, Height : 3456, nComp: 1
 Time spent in different stages of the application:
  0.000001 s => Part I: allocate and initialize variables
  0.000011 s => Part II: parse command line arguments
- 0.015078 s => Part III: read image
- 0.097332 s => Part IV: allocate variables
- 1.541844 s => Part V: compute
- 2.937937 s => Part VI: write image to file
- 0.056850 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
- 0.056850 s => Part VIII: deallocate variables
-Total time:  4.686088 s
-Average of sum of pixels: 116.159348
-GFLOPS: 52.265518
+ 0.015488 s => Part III: read image
+ 0.091618 s => Part IV: allocate variables
+ 1.304523 s => Part V: compute
+ 2.943428 s => Part VI: write image to file
+ 0.056752 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.056752 s => Part VIII: deallocate variables
+Total time:  4.448503 s
+Average of sum of pixels: 116.075790
+GFLOPS: 61.773754

@@ -263,7 +263,7 @@ endif
 CC = g++
 CFLAGS  = -std=c++0x -g -Wall -O3
 
-all: part1 part2 noise_remover
+all: part1 part2 part3 noise_remover
 
 noise_remover: noise_remover.o
 	$(CC) $(CFLAGS) noise_remover.o -lm -o noise_remover
@@ -283,8 +283,13 @@ part2.o:part2.cu
 part2: part2.o
 	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 
+part3.o: part3.cu
+	$(NVCC) $(INCLUDES) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
+
+part3: part3.o
+	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
+
 clean:
-	rm -f *.png *.o part1 part2 noise_remover 
-	rm -rf ../../bin/$(TARGET_ARCH)/$(TARGET_OS)/$(BUILD_TYPE)/part1
+	rm -f *.png *.o part1 part3 part2 noise_remover
 
 clobber: clean

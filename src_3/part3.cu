@@ -219,10 +219,10 @@ int main(int argc, char *argv[]) {
 
     cudaMemcpy(image_dev, image, sizeof(unsigned char) * n_pixels, cudaMemcpyHostToDevice);
 
-    const int reduction_blocks = n_pixels/256 + (n_pixels % 256 == 0 ? 0 : 1);
-    const int block_row = height/16 + (height % 16 == 0 ? 0 : 1);
-    const int block_col = width/16 + (width % 16 == 0 ? 0 : 1);
-    const dim3 blocks(block_col, block_row), threads(16,16);
+    const int reduction_blocks = n_pixels/BLOCK_SIZE + (n_pixels % BLOCK_SIZE == 0 ? 0 : 1);
+    const int block_row = height/TILE_DIM + (height % TILE_DIM == 0 ? 0 : 1);
+    const int block_col = width/TILE_DIM + (width % TILE_DIM == 0 ? 0 : 1);
+    const dim3 blocks(block_col, block_row), threads(TILE_DIM,TILE_DIM);
 
     cudaMalloc((void**)&sums, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);

@@ -32,13 +32,13 @@ echo "Running compiled binary..."
 
 #Strong scaling
 echo "0: serial code"
-./noise_remover -i coffee.pgm -iter 200 -o serial.png
+./noise_remover -i ../images/coffee.pgm -iter 100 -o serial.png
 
 echo "1: part 1 code"
-./part1 -i coffee.pgm -iter 200 -o part1.png
+./part1 -i ../images/coffee.pgm -iter 100 -o part1.png
 
 echo "2: part 2 code"
-./part2 -i coffee.pgm -iter 200 -o part2.png
+./part2 -i ../images/coffee.pgm -iter 100 -o part2.png
 
 echo "3: part 3 code"
-./part3 -i coffee.pgm -iter 200 -o part3.png
+./part3 -i ../images/coffee.pgm -iter 100 -o part3.png

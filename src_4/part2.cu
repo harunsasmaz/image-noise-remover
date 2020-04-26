@@ -18,8 +18,8 @@
 #include "stb_image_write.h"
 
 #define MATCH(s) (!strcmp(argv[ac], (s)))
-#define BLOCK_SIZE 256
-#define TILE_DIM 16
+#define BLOCK_SIZE 64
+#define TILE_DIM 8
 // returns the current time
 static const double kMicro = 1.0e-6;
 double get_time() {
