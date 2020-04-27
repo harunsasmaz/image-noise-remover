@@ -202,6 +202,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
 
+    int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);
     // warm up kernel
     // warmup<<<blocks, threads>>>();
 
@@ -210,19 +211,15 @@ int main(int argc, char *argv[]) {
     for (int iter = 0; iter < n_iter; iter++) {
 
         reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
-        //puts(cudaGetErrorString(cudaGetLastError()));
-        int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);
-	standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
-	//puts(cudaGetErrorString(cudaGetLastError()));
+
+	    standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 	
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
             north_deriv_dev, south_deriv_dev, east_deriv_dev, west_deriv_dev);
-	//puts(cudaGetErrorString(cudaGetLastError()));
 
         compute2<<<blocks, threads>>>(image_dev, diff_coef_dev, north_deriv_dev, south_deriv_dev,
             east_deriv_dev, west_deriv_dev, lambda, width, height);
 	
-	//puts(cudaGetErrorString(cudaGetLastError()));
         cudaDeviceSynchronize();
     }
 

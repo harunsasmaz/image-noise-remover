@@ -228,6 +228,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&sums2, sizeof(float)*reduction_blocks);
     cudaMalloc((void**)&std_dev, sizeof(float));
 
+    int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);  
     // warm up kernel
     // warmup<<<blocks,threads>>>();
 
@@ -237,7 +238,6 @@ int main(int argc, char *argv[]) {
 
         reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
         
-	    int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);  
         standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
