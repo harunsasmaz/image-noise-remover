@@ -84,35 +84,32 @@ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, f
     int row = by * blockDim.y + ty;
     int index = row * width + col;
 
-    
+    temp[ty][tx] = diff_coef[index];
 
-        temp[ty][tx] = diff_coef[index];
+    if(tx == 0){
+        temp[ty][TILE_DIM] = diff_coef[index + TILE_DIM];
+    }
 
-        if(tx == 0){
-            temp[ty][TILE_DIM] = diff_coef[index + TILE_DIM];
-        }
+    if(ty == 0){
+        temp[TILE_DIM][tx] = diff_coef[(TILE_DIM + row) * width + col];
+    }
 
-        if(ty == 0){
-            temp[TILE_DIM][tx] = diff_coef[(TILE_DIM + row) * width + col];
-        }
-
-        __syncthreads();
+    __syncthreads();
 
 	if(row > 0 && col > 0 && row < height - 1 && col < width - 1){
 
-       		float diff_coef_north = temp[ty][tx];	
-        	float diff_coef_south = temp[ty + 1][tx];	
-        	float diff_coef_west = temp[ty][tx];	        
-        	float diff_coef_east = temp[ty][tx + 1];
+        float diff_coef_north = temp[ty][tx];	
+        float diff_coef_south = temp[ty + 1][tx];	
+        float diff_coef_west = temp[ty][tx];	        
+        float diff_coef_east = temp[ty][tx + 1];
 
-        	float divergence = diff_coef_north * north[index] 
-                            + diff_coef_south * south[index] 
-                            + diff_coef_west * west[index] 
-                            + diff_coef_east * east[index];
-
-        
-           	 image[index] = image[index] + 0.25 * lambda * divergence;
-    	}
+        float divergence = diff_coef_north * north[index] 
+                        + diff_coef_south * south[index] 
+                        + diff_coef_west * west[index] 
+                        + diff_coef_east * east[index];
+    
+        image[index] = image[index] + 0.25 * lambda * divergence;
+    }
 
 }
 
