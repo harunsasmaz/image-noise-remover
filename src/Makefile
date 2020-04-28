@@ -290,6 +290,6 @@ part3: part3.o
 	$(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $+ $(LIBRARIES)
 
 clean:
-	rm -f *.png *.o part1 part3 part2 noise_remover
+	rm -f *.png *.o part1 part2 part3 noise_remover
 
 clobber: clean

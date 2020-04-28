@@ -16,10 +16,12 @@
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+#include <cooperative_groups.h>
+
 
 #define MATCH(s) (!strcmp(argv[ac], (s)))
 #define BLOCK_SIZE 256
-#define TILE_DIM 16
+#define TILE_DIM 32
 // returns the current time
 static const double kMicro = 1.0e-6;
 double get_time() {
@@ -32,6 +34,38 @@ double get_time() {
     }
     return( ((double)TV.tv_sec) + kMicro * ((double)TV.tv_usec) );
 }
+
+namespace cg = cooperative_groups;
+
+// Utility class used to avoid linker errors with extern
+// unsized shared memory arrays with templated type
+template <class T>
+struct SharedMemory {
+  __device__ inline operator T *() {
+    extern __shared__ int __smem[];
+    return (T *)__smem;
+  }
+
+  __device__ inline operator const T *() const {
+    extern __shared__ int __smem[];
+    return (T *)__smem;
+  }
+};
+
+// specialize for double to avoid unaligned memory
+// access compile errors
+template <>
+struct SharedMemory<double> {
+  __device__ inline operator double *() {
+    extern __shared__ double __smem_d[];
+    return (double *)__smem_d;
+  }
+
+  __device__ inline operator const double *() const {
+    extern __shared__ double __smem_d[];
+    return (double *)__smem_d;
+  }
+};
 
 __global__ void warmup(){}
 
@@ -94,36 +128,134 @@ __global__ void compute2(unsigned char* image, float* diff_coef, float* north, f
     }
 }
 
-__global__ void reduction(unsigned char* image, float* sums, float* sums2, int size)
-{
-    __shared__ float sdata[BLOCK_SIZE];
-    __shared__ float sdata2[BLOCK_SIZE];
+template <class T, unsigned int blockSize, bool nIsPow2>
+__global__ void reduce1(unsigned char *g_idata, T *g_odata, unsigned int n) {
+  // Handle to thread block group
+  cg::thread_block cta = cg::this_thread_block();
+  T *sdata = SharedMemory<T>();
 
-    unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
+  // perform first level of reduction,
+  // reading from global memory, writing to shared memory
+  unsigned int tid = threadIdx.x;
+  unsigned int i = blockIdx.x * blockSize * 2 + threadIdx.x;
+  unsigned int gridSize = blockSize * 2 * gridDim.x;
 
-    float mySum = (i < size) ? image[i] : 0;
-    float mySum2 = (i < size) ? image[i] * image[i] : 0;
-    if (i + blockDim.x < size){
-        mySum += image[i + blockDim.x];
-        mySum2 += image[i + blockDim.x] * image[i + blockDim.x];
-    } 
-    sdata[tid] = mySum;
-    sdata2[tid] = mySum2;
-    __syncthreads();
+  T mySum = 0;
 
-    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (tid < s) {
-          sdata[tid] = mySum = mySum + sdata[tid + s];
-          sdata2[tid] = mySum2 = mySum2 + sdata2[tid + s];
-        }
-        __syncthreads();
+  // we reduce multiple elements per thread.  The number is determined by the
+  // number of active thread blocks (via gridDim).  More blocks will result
+  // in a larger gridSize and therefore fewer elements per thread
+  while (i < n) {
+    mySum += g_idata[i];
+
+    // ensure we don't read out of bounds -- this is optimized away for powerOf2
+    // sized arrays
+    if (nIsPow2 || i + blockSize < n) mySum += g_idata[i + blockSize];
+
+    i += gridSize;
+  }
+
+  // each thread puts its local sum into shared memory
+  sdata[tid] = mySum;
+  cg::sync(cta);
+
+  // do reduction in shared mem
+  if ((blockSize >= 512) && (tid < 256)) {
+    sdata[tid] = mySum = mySum + sdata[tid + 256];
+  }
+
+  cg::sync(cta);
+
+  if ((blockSize >= 256) && (tid < 128)) {
+    sdata[tid] = mySum = mySum + sdata[tid + 128];
+  }
+
+  cg::sync(cta);
+
+  if ((blockSize >= 128) && (tid < 64)) {
+    sdata[tid] = mySum = mySum + sdata[tid + 64];
+  }
+
+  cg::sync(cta);
+
+  cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
+  if (cta.thread_rank() < 32) {
+    // Fetch final intermediate sum from 2nd warp
+    if (blockSize >= 64) mySum += sdata[tid + 32];
+    // Reduce final warp using shuffle
+    for (int offset = tile32.size() / 2; offset > 0; offset /= 2) {
+      mySum += tile32.shfl_down(mySum, offset);
     }
+  }
 
-    if (tid == 0){
-        sums[blockIdx.x] = mySum;
-        sums2[blockIdx.x] = mySum2;
+  // write result for this block to global mem
+  if (cta.thread_rank() == 0) g_odata[blockIdx.x] = mySum;
+}
+
+template <class T, unsigned int blockSize, bool nIsPow2>
+__global__ void reduce2(unsigned char *g_idata, T *g_odata, unsigned int n) {
+  // Handle to thread block group
+  cg::thread_block cta = cg::this_thread_block();
+  T *sdata = SharedMemory<T>();
+
+  // perform first level of reduction,
+  // reading from global memory, writing to shared memory
+  unsigned int tid = threadIdx.x;
+  unsigned int i = blockIdx.x * blockSize * 2 + threadIdx.x;
+  unsigned int gridSize = blockSize * 2 * gridDim.x;
+
+  T mySum = 0;
+
+  // we reduce multiple elements per thread.  The number is determined by the
+  // number of active thread blocks (via gridDim).  More blocks will result
+  // in a larger gridSize and therefore fewer elements per thread
+  while (i < n) {
+    mySum += g_idata[i] * g_idata[i];
+
+    // ensure we don't read out of bounds -- this is optimized away for powerOf2
+    // sized arrays
+    if (nIsPow2 || i + blockSize < n) mySum += g_idata[i + blockSize] * g_idata[i + blockSize];
+
+    i += gridSize;
+  }
+
+  // each thread puts its local sum into shared memory
+  sdata[tid] = mySum;
+  cg::sync(cta);
+
+  // do reduction in shared mem
+  if ((blockSize >= 512) && (tid < 256)) {
+    sdata[tid] = mySum = mySum + sdata[tid + 256];
+  }
+
+  cg::sync(cta);
+
+  if ((blockSize >= 256) && (tid < 128)) {
+    sdata[tid] = mySum = mySum + sdata[tid + 128];
+  }
+
+  cg::sync(cta);
+
+  if ((blockSize >= 128) && (tid < 64)) {
+    sdata[tid] = mySum = mySum + sdata[tid + 64];
+  }
+
+  cg::sync(cta);
+
+  cg::thread_block_tile<32> tile32 = cg::tiled_partition<32>(cta);
+
+  if (cta.thread_rank() < 32) {
+    // Fetch final intermediate sum from 2nd warp
+    if (blockSize >= 64) mySum += sdata[tid + 32];
+    // Reduce final warp using shuffle
+    for (int offset = tile32.size() / 2; offset > 0; offset /= 2) {
+      mySum += tile32.shfl_down(mySum, offset);
     }
+  }
+
+  // write result for this block to global mem
+  if (cta.thread_rank() == 0) g_odata[blockIdx.x] = mySum;
 }
 
 __global__ void standard_dev(float* sums, float* sums2, float* std_dev, int size, int numBlocks)
@@ -138,6 +270,8 @@ __global__ void standard_dev(float* sums, float* sums2, float* std_dev, int size
     float variance = (sum2 / size) - mean * mean; // --- 3 floating point arithmetic operations
     std_dev[0] = variance / (mean * mean);
 }
+
+extern "C" bool isPow2(unsigned int x) { return ((x & (x - 1)) == 0); }
 
 int main(int argc, char *argv[]) {
     // Part I: allocate and initialize variables
@@ -207,16 +341,22 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&std_dev, sizeof(float));
 
     int numblocks = reduction_blocks/2 + (reduction_blocks % 2 == 0 ? 0 : 1);
-
+    bool pow2 = isPow2(n_pixels);
+    
     // warm up kernel
-    // warmup<<<blocks, threads>>>();
+    warmup<<<blocks, threads>>>();
 
     time_4 = get_time();
      // Part V: compute --- n_iter * (3 * height * width + 42 * (height-1) * (width-1) + 6) floating point arithmetic operations in totaL
     for (int iter = 0; iter < n_iter; iter++) {
 
-        reduction<<<reduction_blocks, BLOCK_SIZE>>>(image_dev, sums, sums2, n_pixels);
-
+        if(pow2){
+            reduce1<float, BLOCK_SIZE, true><<<reduction_blocks, BLOCK_SIZE, BLOCK_SIZE * sizeof(float)>>>(image_dev, sums, n_pixels);
+            reduce2<float, BLOCK_SIZE, true><<<reduction_blocks, BLOCK_SIZE, BLOCK_SIZE * sizeof(float)>>>(image_dev, sums2, n_pixels);    
+        } else {
+            reduce1<float, BLOCK_SIZE, false><<<reduction_blocks, BLOCK_SIZE, BLOCK_SIZE * sizeof(float)>>>(image_dev, sums, n_pixels);
+            reduce2<float, BLOCK_SIZE, false><<<reduction_blocks, BLOCK_SIZE, BLOCK_SIZE * sizeof(float)>>>(image_dev, sums2, n_pixels);    
+        }
 	    standard_dev<<<1,1>>>(sums, sums2, std_dev, n_pixels, numblocks);
 	
         compute1<<<blocks, threads>>>(image_dev, diff_coef_dev, std_dev, width, height,
