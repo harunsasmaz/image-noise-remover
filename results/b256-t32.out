@@ -1,0 +1,81 @@
+Setting stack size to unlimited...
+core file size          (blocks, -c) 0
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 514841
+max locked memory       (kbytes, -l) unlimited
+max memory size         (kbytes, -m) 153600000
+open files                      (-n) 51200
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) unlimited
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 4096
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+
+Running Job...!
+===============================================================================
+Running compiled binary...
+0: serial code
+Reading image...
+Image Read. Width : 5184, Height : 3456, nComp: 1
+Time spent in different stages of the application:
+ 0.000001 s => Part I: allocate and initialize variables
+ 0.000005 s => Part II: parse command line arguments
+ 0.016614 s => Part III: read image
+ 0.001779 s => Part IV: allocate variables
+77.082695 s => Part V: compute
+ 1.050957 s => Part VI: write image to file
+ 0.024611 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.024611 s => Part VIII: deallocate variables
+Total time: 78.178897 s
+Average of sum of pixels: 116.074287
+GFLOPS: 1.045439
+1: part 1 code
+Reading image...
+Image Read. Width : 5184, Height : 3456, nComp: 1
+Time spent in different stages of the application:
+ 0.000001 s => Part I: allocate and initialize variables
+ 0.000011 s => Part II: parse command line arguments
+ 0.015350 s => Part III: read image
+ 0.110310 s => Part IV: allocate variables
+ 1.512393 s => Part V: compute
+ 2.920393 s => Part VI: write image to file
+ 0.057216 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.057216 s => Part VIII: deallocate variables
+Total time:  4.652580 s
+Average of sum of pixels: 116.075806
+GFLOPS: 53.283295
+2: part 2 code
+Reading image...
+Image Read. Width : 5184, Height : 3456, nComp: 1
+Time spent in different stages of the application:
+ 0.000001 s => Part I: allocate and initialize variables
+ 0.000022 s => Part II: parse command line arguments
+ 0.016479 s => Part III: read image
+ 0.098485 s => Part IV: allocate variables
+ 1.447115 s => Part V: compute
+ 2.918043 s => Part VI: write image to file
+ 0.057065 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.057065 s => Part VIII: deallocate variables
+Total time:  4.574257 s
+Average of sum of pixels: 116.075806
+GFLOPS: 55.686855
+3: part 3 code
+Reading image...
+Image Read. Width : 5184, Height : 3456, nComp: 1
+Time spent in different stages of the application:
+ 0.000001 s => Part I: allocate and initialize variables
+ 0.000010 s => Part II: parse command line arguments
+ 0.016621 s => Part III: read image
+ 0.099051 s => Part IV: allocate variables
+ 1.516710 s => Part V: compute
+ 2.940513 s => Part VI: write image to file
+ 0.057304 s => Part VII: get average of sum of pixels for testing and calculate GFLOPS
+ 0.057304 s => Part VIII: deallocate variables
+Total time:  4.667730 s
+Average of sum of pixels: 116.075806
+GFLOPS: 53.131641
